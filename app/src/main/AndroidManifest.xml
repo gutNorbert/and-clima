@@ -15,7 +15,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:name="com.londonappbrewery.climapm.WeatherController"
+            android:name="com.gutNorbert.climapm.WeatherController"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
