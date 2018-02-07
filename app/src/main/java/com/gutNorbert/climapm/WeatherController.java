@@ -2,15 +2,18 @@ package com.gutNorbert.climapm;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -39,7 +42,7 @@ public class WeatherController extends AppCompatActivity {
     final float MIN_DISTANCE = 1000;
 
     // TODO: Set LOCATION_PROVIDER here:
-    String LOCATION_PROVIDER = LocationManager.NETWORK_PROVIDER;
+    String LOCATION_PROVIDER = LocationManager.GPS_PROVIDER;
 
 
     // Member Variables:
@@ -61,10 +64,17 @@ public class WeatherController extends AppCompatActivity {
         mCityLabel = (TextView) findViewById(R.id.locationTV);
         mWeatherImage = (ImageView) findViewById(R.id.weatherSymbolIV);
         mTemperatureLabel = (TextView) findViewById(R.id.tempTV);
-        ImageButton changeCityButton = (ImageButton) findViewById(R.id.changeCityButton);
+        final ImageButton changeCityButton = (ImageButton) findViewById(R.id.changeCityButton);
 
 
         // TODO: Add an OnClickListener to the changeCityButton here:
+        changeCityButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent myIntent = new Intent(WeatherController.this, ChangeCityController.class);
+                startActivity(myIntent);
+            }
+        });
 
     }
 
@@ -74,11 +84,27 @@ public class WeatherController extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d("Clima", "On resume() called");
+
+        Intent myIntent = getIntent();
+        String city = myIntent.getStringExtra("City");
+
+        if (city != null){
+            getWeatherForNewCity(city);
+        } else {
+
+        }
+
         Log.d("Clima", "Getting weather for current location");
         getWeatherForCurrentLocation();
     }
 
     // TODO: Add getWeatherForNewCity(String city) here:
+    private void getWeatherForNewCity(String city){
+        RequestParams params = new RequestParams();
+        params.put("q",city);
+        params.put("appid",APP_ID);
+        letsDoSomeNetworking(params);
+    }
 
 
     // TODO: Add getWeatherForCurrentLocation() here:
@@ -91,7 +117,8 @@ public class WeatherController extends AppCompatActivity {
                 Log.d("Clima", "onLocationChanged() callback recieved");
 
                 String longitude = String.valueOf(location.getLongitude());
-                String latitude = String.valueOf(location.getAltitude());
+                String latitude = String.valueOf(location.getLatitude());
+
 
                 Log.d("Clima", longitude);
                 Log.d("Clima", latitude);
@@ -111,24 +138,18 @@ public class WeatherController extends AppCompatActivity {
 
             @Override
             public void onProviderEnabled(String provider) {
-
+                Log.d("Clima", "onProviderEnabled callback recieved");
             }
 
             @Override
             public void onProviderDisabled(String provider) {
                 Log.d("Clima", "onProviderDisabled callback recieved");
+                startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
             }
         };
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},REQUEST_CODE);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_CODE);
             return;
         }
         mLocationManager.requestLocationUpdates(LOCATION_PROVIDER, MIN_TIME, MIN_DISTANCE, mLocationListener);
@@ -161,9 +182,11 @@ public class WeatherController extends AppCompatActivity {
                 Log.d("Clima", "Succes! JSON" + response.toString());
 
                 WeatherDataModel weatherData = WeatherDataModel.fromJson(response);
+                updateUI(weatherData);
             }
 
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable e, JSONObject response) {
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable e) {
                 Log.e("Clima", "Fail" + e.toString());
                 Log.d("Clima", "Status code " + statusCode);
                 Toast.makeText(WeatherController.this, "Request Failed", Toast.LENGTH_LONG).show();
@@ -173,11 +196,23 @@ public class WeatherController extends AppCompatActivity {
 
 
     // TODO: Add updateUI() here:
+    private void updateUI(WeatherDataModel weather){
+        mTemperatureLabel.setText(weather.getTemperature());
+        mCityLabel.setText(weather.getCity());
 
-
+        int resourceID = getResources().getIdentifier(weather.getIconName(),"drawable",getPackageName());
+        mWeatherImage.setImageResource(resourceID);
+    }
 
     // TODO: Add onPause() here:
 
 
+    @Override
+    protected void onPause() {
+        super.onPause();
 
+        if (mLocationManager != null){
+            mLocationManager.removeUpdates(mLocationListener);
+        }
+    }
 }
